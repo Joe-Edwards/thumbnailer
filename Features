@@ -1,0 +1,5 @@
+Current restrictions
+
+- Don't support interlacing
+- Always refilters with Paeth, can we choose this intelligently?
+- Probably inefficient

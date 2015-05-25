@@ -142,13 +142,13 @@ object PngFlows {
     var totalSize2 = 0L
     Flow[ByteString]
       //.log("compressed", b => {totalSize += b.length; totalSize})(new SimpleLogger())
-      .mapConcat(_.grouped(512).toList) // TODO: Deflate gets overexcited with large pieces
+      .mapConcat(_.grouped(1024).toList) // TODO: Deflate gets overexcited with large pieces
       .transform(() => new DeflateDecompressor())
       //.log("decompressed", b => {totalSize2 += b.length; totalSize2})(new SimpleLogger())
       .transform(() => new Linifier(ihdr.bytesPerLine))
       .transform(() => new UnfilteringStage(ihdr.bytesPerPixel))
       .via(dataTransform)
-      .transform(() => new FilteringStage(ihdr.bytesPerPixel))//, singleFilter = Some(Filter.PaethFilter))) // TODO: Choose filter intelligently?
+      .transform(() => new FilteringStage(ihdr.bytesPerPixel))//, singleFilter = Some(Filter.PaethFilter))) // TODO: Maybe more efficient to just stick with Paeth
       .map(_.raw)
       .transform(() => new Deflate(_ => true).newEncodeTransformer())
   }

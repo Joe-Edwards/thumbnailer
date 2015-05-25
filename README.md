@@ -29,7 +29,8 @@ Fill in the form and hit submit, the resized image should appear to the side.
 
 * Does not support interlacing
 * The deflate/inflate stages (taken from akka-http) seem to get upset at some images - reasons unclear
+  * Reducing the size of the chunks entering the deflater seems to help (indicating there's a bug in the deflater)
+  * Some images fail even with very small chunks
   * Seems to happen more with large images, but that may just be because there's more to go wrong
-  * It could be a problem with the de-chunking process or a bug in akka (or I have a lot of corrupt images).
 * Likely to be horribly inefficient. It uses a `ByteBuffer` for particularly intensive operations, but the streams have significant overhead.
 * The web app behaves quite poorly on failure - as it's all streamed if there's a failure it just times out.

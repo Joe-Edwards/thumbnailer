@@ -25,7 +25,11 @@ class Linifier(bytesPerLine: Int) extends PushPullStage[ByteString, Line] {
       ctx.push(line)
     } else if (ctx.isFinishing) {
       // Finishing without any more lines to emit
-      if (buffer.isEmpty) ctx.finish() else ctx.fail(new Exception("Incomplete line data: " + buffer))
+      if (buffer.isEmpty) {
+        ctx.finish()
+      } else {
+        ctx.fail(new Exception(s"Incomplete line data (need $bytesPerLine, only got ${buffer.length}}): " + buffer))
+      }
     } else {
       // Need more data
       ctx.pull()

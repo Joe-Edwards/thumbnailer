@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Thumbnailer</title>
+    <script src="thumbnail.js"></script>
+  </head>
+  <body>
+    <h1>Thumbnailer</h1>
+    <div id="formdiv" style="float: left">
+      <form id="resize" method="post" enctype="multipart/form-data">
+        <div>
+          <label>
+            <p>Width Scale</p>
+            <input type="number" name="widthscale" min="1" step="1" value="2">
+          </label>
+        </div>
+        <div>
+          <label>
+            <p>Height Scale</p>
+            <input type="number" name="heightscale" min="1" step="1" value="2">
+          </label>
+        </div>
+        <div>
+          <label>
+            <p>File</p>
+            <input type="file" name="in" accept="image/png">
+          </label>
+        </div>
+        <div>
+          <input type="submit">
+        </div>
+      </form>
+    </div>
+
+    <div id="preview" style="float: left">
+      <img id="thumbnail"/>
+    </div>
+  </body>
+</html>

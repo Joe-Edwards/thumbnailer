@@ -23,6 +23,17 @@ class CrcAppenderSpec extends Specification {
       result must beEqualTo(List(data, expectedCrc)).await()
     }
 
+    "append a valid CRC in 2 pieces" in {
+      // The same data and CRC as above
+      val nameData = ByteString('I', 'H', 'D', 'R')
+      val data = ByteString(0, 0, 0, 8, 0, 0, 0, 8, 8, 2, 0, 0, 0)
+      val expectedCrc = ByteString(0x4B, 0x6D, 0x29, 0xDC)
+
+      val result = Source(List(nameData, data)).transform(() => new CrcAppender).runFold(List[ByteString]())(_ :+ _)
+
+      result must beEqualTo(List(nameData, data, expectedCrc)).await()
+    }
+
     "append another CRC of a data stream" in {
       // The data and CRC of a valid pHYs
       val data = ByteString(0x70, 0x48, 0x59, 0x73, 0x00, 0x00, 0x0E, 0xC3, 0x00, 0x00, 0x0E, 0xC3, 0x01)

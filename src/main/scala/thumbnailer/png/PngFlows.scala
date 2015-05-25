@@ -1,9 +1,10 @@
 package thumbnailer.png
 
-import akka.http.scaladsl.coding.{Deflate, DeflateDecompressor}
+import akka.http.scaladsl.coding.{Decoder, Deflate, DeflateDecompressor}
 import akka.stream.FlowMaterializer
 import akka.stream.scaladsl._
 import akka.util.ByteString
+import thumbnailer.SimpleLogger
 import thumbnailer.png.datatypes._
 import thumbnailer.png.stages._
 
@@ -59,6 +60,10 @@ object PngFlows {
 
       (flow.inlet, merge.out)
     }
+  }
+
+  implicit class RawSourceWithResize[Mat](val raw: Source[ByteString, Mat])(implicit fm: FlowMaterializer) {
+    def resizePngData(logic: ScalingLogic) = PngFlows.resize(raw.via(chunker).via(mandatoryChunkFilter), logic).via(deChunker)
   }
 
   implicit class SourceWithResize[Mat](val chunks: Source[Chunk, Mat])(implicit fm: FlowMaterializer) {
@@ -133,8 +138,13 @@ object PngFlows {
     ihdr: Ihdr,
     dataTransform: Flow[Line, Line, _]
   ): Flow[ByteString, ByteString, _] = {
+    var totalSize = 0L
+    var totalSize2 = 0L
     Flow[ByteString]
+      //.log("compressed", b => {totalSize += b.length; totalSize})(new SimpleLogger())
+      .mapConcat(_.grouped(512).toList) // TODO: Deflate gets overexcited with large pieces
       .transform(() => new DeflateDecompressor())
+      //.log("decompressed", b => {totalSize2 += b.length; totalSize2})(new SimpleLogger())
       .transform(() => new Linifier(ihdr.bytesPerLine))
       .transform(() => new UnfilteringStage(ihdr.bytesPerPixel))
       .via(dataTransform)

@@ -6,8 +6,8 @@ import thumbnailer.png.stages.CrcAppender
 
 case class Chunk(header: ChunkHeader, data: Source[ByteString, _]) {
   def bytes: Source[ByteString, _] = {
-    Source.single(header.bytes) ++
-      data.transform(() => new CrcAppender)
+    val crcData = Source.single(header.nameBytes) ++ data
+    Source.single(header.lengthBytes) ++ crcData.transform(() => new CrcAppender)
   }
 
   def isMandatory = header.name.charAt(0).isUpper

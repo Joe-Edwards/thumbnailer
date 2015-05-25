@@ -12,7 +12,7 @@ import thumbnailer.png.stages.{AverageScalingStage, DownsamplingStage}
 import scala.concurrent.{Future, Await}
 import scala.concurrent.duration._
 
-object App {
+object CommandLineApp {
   def main(args: Array[String]): Unit = {
 
     val usageText = "--in <input file> [--out <output file>] [--scalewidth <width scaling>] [--scaleheight <height scaling>]"
@@ -51,10 +51,7 @@ object App {
     val resizeLogic = new AverageScalingStage.Logic(scaleWidth, scaleHeight)
 
     val (inputLengthFuture, outputLengthFuture) = inputSource
-      .via(chunker)
-      .via(mandatoryChunkFilter)
-      .resize(resizeLogic)
-      .via(deChunker)
+      .resizePngData(resizeLogic)
       .toMat(outputSink)((_, _))
       .run()
 

@@ -3,5 +3,5 @@ Class-Path: config-1.2.1.jar akka-stream-experimental_2.11-1.0-RC3.jar
   akka-parsing-experimental_2.11-1.0-RC3.jar akka-actor_2.11-2.3.11.ja
  r akka-http-core-experimental_2.11-1.0-RC3.jar scala-library-2.11.6.j
  ar akka-http-experimental_2.11-1.0-RC3.jar reactive-streams-1.0.0.jar
-Main-Class: thumbnailer.App
+Main-Class: thumbnailer.CommandLineApp
 

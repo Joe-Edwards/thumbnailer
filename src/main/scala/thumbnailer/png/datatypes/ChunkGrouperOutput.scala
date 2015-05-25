@@ -6,11 +6,12 @@ import akka.util.ByteString
 
 sealed trait ChunkGrouperOutput {
   def header: ChunkHeader
-  def bytes: ByteString
 }
 
 case class ChunkHeader(name: String, length: Int) extends ChunkGrouperOutput {
-  def bytes = ByteString(ByteBuffer.allocate(4).putInt(length).array()) ++ ByteString(name.getBytes)
+
+  def lengthBytes = ByteString(ByteBuffer.allocate(4).putInt(length).array())
+  def nameBytes =  ByteString(name.getBytes)
 
   def isEnd = name == "IEND"
 
@@ -19,6 +20,4 @@ case class ChunkHeader(name: String, length: Int) extends ChunkGrouperOutput {
 
 case class ChunkData(header: ChunkHeader, bytes: ByteString) extends ChunkGrouperOutput
 
-case class ChunkEnd(header: ChunkHeader, crc: ByteString) extends ChunkGrouperOutput {
-  val bytes = crc
-}
+case class ChunkEnd(header: ChunkHeader, crc: ByteString) extends ChunkGrouperOutput

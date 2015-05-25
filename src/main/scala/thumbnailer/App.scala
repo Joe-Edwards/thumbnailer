@@ -34,8 +34,8 @@ object App {
 
     val inFile = new File(options.getOrElse("i", usage()))
     val outFile = new File(options.getOrElse("o", "output.png"))
-    val scaleWidth = options.getOrElse("w", "1").toInt
-    val scaleHeight = options.getOrElse("h", "1").toInt
+    val scaleWidth = options.getOrElse("w", "2").toInt
+    val scaleHeight = options.getOrElse("h", "2").toInt
 
     print("Thumbnailing file...")
 

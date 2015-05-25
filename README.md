@@ -23,5 +23,4 @@ This will scale the input file by the given ratios using an averaging method.
 
 * Does not support interlacing
 * The deflate/inflate stages (taken from akka-http) seem to get upset at some images - unclear why.
-* Each chunk is supposed to have CRC check bytes - currently these are just zero bytes. This means any decoder checking them will complain.
 * Likely to be horribly inefficient. It uses a `ByteBuffer` for particularly intensive operations, but the streams have significant overhead.

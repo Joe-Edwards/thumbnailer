@@ -1,5 +1,8 @@
 package thumbnailer.png.stages
 
+import java.nio.ByteBuffer
+import java.util.zip.CRC32
+
 import akka.stream.stage._
 import akka.util.ByteString
 import thumbnailer.png.datatypes._
@@ -14,6 +17,8 @@ import thumbnailer.stage.BufferedState
 class ChunkGrouper extends StatefulStage[ByteString, ChunkGrouperOutput] {
 
   type Ctx = Context[ChunkGrouperOutput]
+
+  val crc = new CRC32()
 
   // Initially we look for a valid PNG header
   override def initial: StageState[ByteString, ChunkGrouperOutput] = readingPngHeader()
@@ -41,7 +46,16 @@ class ChunkGrouper extends StatefulStage[ByteString, ChunkGrouperOutput] {
   def readingChunkHeader(buffer: ByteString): BufferedState[ChunkGrouperOutput] = new BufferedState[ChunkGrouperOutput](buffer) {
     override def process(ctx: Ctx): SyncDirective = {
       waitForBytes(ctx, 8) { headerBytes =>
-        val header = ChunkHeader(headerBytes.slice(4, 8).utf8String, headerBytes.asByteBuffer.getInt(0))
+        val nameBytes = headerBytes.slice(4, 8)
+
+        // Sanity check the name for ASCII bytes
+        if (!nameBytes.forall(b => (64 < b) && (b < 123))) return ctx.fail(new Exception(s"Bad chunk name $nameBytes"))
+
+        val header = ChunkHeader(nameBytes.utf8String, headerBytes.asByteBuffer.getInt(0))
+
+        // Put the name bytes in the CRC
+        crc.reset()
+        crc.update(nameBytes.asByteBuffer)
 
         if (header.isEnd)
           becomeAndPull(readingChunkData(buffer, header), ctx)
@@ -63,6 +77,8 @@ class ChunkGrouper extends StatefulStage[ByteString, ChunkGrouperOutput] {
         val bytes = buffer.take(bytesToForward)
         buffer = buffer.drop(bytesToForward)
 
+        crc.update(bytes.asByteBuffer)
+
         if (header.isEnd) {
           becomeAndPull(readingChunkEnd(buffer, header), ctx)
         } else {
@@ -74,6 +90,8 @@ class ChunkGrouper extends StatefulStage[ByteString, ChunkGrouperOutput] {
         val bytes = buffer
         buffer = ByteString()
 
+        crc.update(bytes.asByteBuffer)
+
         if (header.isEnd)
           pullIfPossible(ctx)
         else
@@ -84,12 +102,15 @@ class ChunkGrouper extends StatefulStage[ByteString, ChunkGrouperOutput] {
 
   def readingChunkEnd(buffer: ByteString, header: ChunkHeader): BufferedState[ChunkGrouperOutput] = new BufferedState[ChunkGrouperOutput](buffer) {
     override def process(ctx: Context[ChunkGrouperOutput]): SyncDirective = {
-      waitForBytes(ctx, 4) { crc =>
+      waitForBytes(ctx, 4) { crcBytes =>
+        if (crcBytes.asByteBuffer.getInt(0) != crc.getValue.toInt)
+          println(s"Warning: Bad CRC for ${header.name} chunk")
+
         if (header.isEnd) {
           becomeAndPull(endingStream(), ctx)
         } else {
           become(readingChunkHeader(buffer))
-          ctx.push(ChunkEnd(header, crc))
+          ctx.push(ChunkEnd(header, crcBytes))
         }
       }
     }

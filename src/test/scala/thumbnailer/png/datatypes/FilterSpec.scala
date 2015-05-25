@@ -1,8 +1,7 @@
-package thumbnailer.png.stages
+package thumbnailer.png.datatypes
 
 import akka.util.ByteString
 import org.specs2.mutable.Specification
-import thumbnailer.png.datatypes.Filter
 import thumbnailer.png.datatypes.Filter._
 
 class FilterSpec extends Specification {

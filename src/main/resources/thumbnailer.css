@@ -1,0 +1,133 @@
+body {
+  background-color: #E0EAEA;
+  font-family: Helvetica, sans-serif;
+  margin: 0;
+}
+
+h1 {
+  margin: 10px;
+}
+
+#formdiv {
+  border-top: 5px solid #333333;
+  border-bottom: 5px solid #333333;
+  background-color: #71A3D5;
+  margin: 0;
+  font-size: 120%;
+  min-width: 950px;
+}
+
+.formelement {
+  margin: 15px;
+  background-color: #C89B48;
+  border: 3px solid #505080;
+  border-radius: 5px;
+  color: #302020;
+  padding: 5px;
+}
+
+#sliders {
+  width: 70%;
+  float: left;
+}
+
+.slider {
+  width: 75%;
+  height: 30px;
+  float: left;
+}
+
+.sliderdiv{
+  float: left;
+  height: 30px;
+  line-height: 34px;
+  margin-left: 10px
+}
+
+#scalediv {
+  margin-top: 0;
+  width: 40%;
+  float: right;
+}
+
+#scaleselect {
+  height: 38px;
+  font-size: 60%;
+  font-weight: bold;
+  border-radius: 5px;
+  border: 2px solid #505080;
+  background-color: #DDDDDD;
+}
+
+#rightdiv {
+  width: 30%;
+  float: right;
+}
+
+#filediv {
+  height: 90px;
+  text-align: center;
+  padding: 10px;
+  margin-bottom: 10px;
+}
+
+#fileinput {
+  background-color: #DDDDDD;
+  border: 2px solid #505080;
+  border-radius: 5px;
+  width: 80%;
+  margin: 10px;
+  padding: 5px;
+  font-size: 60%;
+  font-weight: bold;
+}
+
+#fileinput::before {
+  /* content: 'Choose a file'; */
+}
+
+#titlediv {
+  margin: 10px;
+  margin-top: 0;
+  width: 45%;
+  height: 40px;
+  float: left;
+  font-weight: bold;
+  font-size: 200%;
+  text-align: center;
+}
+
+#submit {
+  margin: 15px;
+  margin-left: 20px;
+  margin-right: 20px;
+  margin-bottom: 0;
+}
+
+#submitbutton {
+  width: 100%;
+  height: 50px;
+  background: #10283F;
+  border: 2px solid #070F05;
+  border-radius: 5px;
+  font-size: 180%;
+  color: #C2D2EF;
+  text-shadow: 0 0 1px #DDDDDD;
+}
+
+#submitbutton:active {
+  background: #20384F;
+}
+
+#preview {
+  padding: 10px;
+}
+
+.clearfix:after {
+	visibility: hidden;
+	display: block;
+	font-size: 0;
+	content: " ";
+	clear: both;
+	height: 0;
+}

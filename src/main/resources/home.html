@@ -3,45 +3,54 @@
   <head>
     <title>Thumbnailer</title>
     <script src="thumbnail.js"></script>
+    <link rel="stylesheet" type="text/css" href="thumbnailer.css">
   </head>
   <body>
-    <h1>Thumbnailer</h1>
-    <div id="formdiv" style="float: left">
+    <div id="formdiv" class="clearfix">
       <form id="resize" method="post" enctype="multipart/form-data">
-        <div>
-          <label>
-            <p>Width Scale</p>
-            <input type="number" name="widthscale" min="1" step="1" value="2">
-          </label>
+        <div id="sliders">
+          <div id="widthscale" class="formelement">
+            <label class = "clearfix">
+              <input id="widthinput" class="slider" type="range" name="widthscale" min="1" max="20" value="2">
+              <div class="sliderdiv">Width Scale</div>
+              <div class="sliderdiv" id="widthlabel">2</div>
+            </label>
+          </div>
+          <div id="heightscale" class="formelement">
+            <label class = "clearfix">
+              <input id="heightinput" class="slider" type="range" name="heightscale" min="1" max="20" value="2">
+              <div class="sliderdiv">Height Scale</div>
+              <div class="sliderdiv" id="heightlabel">2</div>
+            </label>
+          </div>
+          <div id="titlediv">
+            Thumbnailer
+          </div>
+          <div id="scalediv" class="formelement">
+            <label>
+              <span>Scaling Algorithm</span>
+              <select id="scaleselect" name="scaletype">
+                <option value="downsample">Downsample</option>
+                <option value="average" selected>Average</option>
+              </select>
+            </label>
+          </div>
         </div>
-        <div>
-          <label>
-            <p>Height Scale</p>
-            <input type="number" name="heightscale" min="1" step="1" value="2">
-          </label>
-        </div>
-        <div>
-          <label>
-            <p>Scale Type</p>
-            <select name="scaletype">
-              <option value="downsample">Downsample</option>
-              <option value="average" selected>Average</option>
-            </select>
-          </label>
-        </div>
-        <div>
-          <label>
-            <p>File</p>
-            <input type="file" name="in" accept="image/png">
-          </label>
-        </div>
-        <div>
-          <input type="submit">
+        <div id="rightdiv">
+          <div id="filediv" class="formelement">
+            <label>
+              <div>File</div>
+              <input id="fileinput" type="file" name="in" accept="image/png">
+            </label>
+          </div>
+          <div id="submit">
+            <input id="submitbutton" type="submit" value="Go!">
+          </div>
         </div>
       </form>
     </div>
 
-    <div id="preview" style="float: left">
+    <div id="preview">
       <img id="thumbnail"/>
     </div>
   </body>

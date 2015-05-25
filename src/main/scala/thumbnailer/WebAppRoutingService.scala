@@ -27,6 +27,9 @@ class WebAppRoutingService(implicit system: ActorSystem, materializer: FlowMater
       path("thumbnail.js") {
         getFromResource("thumbnail.js")
       } ~
+      path("thumbnailer.css") {
+        getFromResource("thumbnailer.css")
+      } ~
       pathPrefix("resize") {
         post {
           entity(as[Multipart.FormData]) { formdata =>

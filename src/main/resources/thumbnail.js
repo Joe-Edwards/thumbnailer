@@ -1,6 +1,18 @@
 window.addEventListener("load", function () {
     var resizeForm = document.getElementById("resize");
     var thumbnail = document.getElementById("thumbnail");
+    var widthscale = document.getElementById("widthinput");
+    var widthlabel = document.getElementById("widthlabel");
+    var heightscale = document.getElementById("heightinput");
+    var heightlabel = document.getElementById("heightlabel");
+
+    widthscale.oninput = function(event) {
+        widthlabel.textContent = widthscale.value
+    };
+
+    heightscale.oninput = function(event) {
+        heightlabel.textContent = heightscale.value
+    };
 
     // Upload the contents of the form and load the thumbnail
     function uploadForResize() {

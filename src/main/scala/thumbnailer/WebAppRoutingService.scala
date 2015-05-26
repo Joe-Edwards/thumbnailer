@@ -90,6 +90,6 @@ class WebAppRoutingService(implicit system: ActorSystem, materializer: FlowMater
   }
 
   def resizeToEntity(logic: ScalingLogic, source: Source[ByteString, _]): HttpEntity.Chunked = {
-    HttpEntity.Chunked.fromData(MediaTypes.`image/png`, source.resizePngData(logic))
+    HttpEntity.Chunked.fromData(MediaTypes.`image/png`, source.via(resizePng(logic)))
   }
 }

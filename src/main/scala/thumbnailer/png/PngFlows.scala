@@ -1,10 +1,8 @@
 package thumbnailer.png
 
-import akka.http.scaladsl.coding.{Decoder, Deflate, DeflateDecompressor}
-import akka.stream.FlowMaterializer
+import akka.http.scaladsl.coding.{Deflate, DeflateDecompressor}
 import akka.stream.scaladsl._
 import akka.util.ByteString
-import thumbnailer.SimpleLogger
 import thumbnailer.png.datatypes._
 import thumbnailer.png.stages._
 
@@ -13,32 +11,46 @@ import scala.concurrent.Promise
 object PngFlows {
 
   /**
+   * Flow combining the others to resize a PNG
+   */
+  def resizePng(logic: ScalingLogic): Flow[ByteString, ByteString, _] = {
+    Flow[ByteString]
+      .via(chunker)
+      .via(mandatoryChunkFilter)
+      .via(resizeChunks(logic))
+      .via(deChunker)
+  }
+
+  /**
    * Turns a stream of bytes into a stream of chunks (excluding the end chunk)
    */
   val chunker: Flow[ByteString, Chunk, _] = {
     Flow[ByteString]
       .transform(() => new ChunkGrouper)
-      .groupBy(_.header)
-      .map {
-        case (header, parts) => Chunk(header, parts.transform(() => new ChunkTerminator))
+      .splitWhen(_.isInstanceOf[ChunkHeader])
+      .map { _.prefixAndTail(1).map {
+        case (Seq(header: ChunkHeader), parts) => Chunk(header, parts.map {
+          case ChunkData(bytes) => bytes
+          case _ => throw new Exception("Bad chunk grouper output")
+        })
+        case _ => throw new Exception("Bad chunk grouper output")
       }
+    }.flatten(FlattenStrategy.concat)
   }
 
   /**
    * Filters any non-mandatory chunks, ensuring that their bytes are still read.
    */
-  def mandatoryChunkFilter(implicit materializer: FlowMaterializer): Flow[Chunk, Chunk, _] = {
+  val mandatoryChunkFilter: Flow[Chunk, Chunk, _] = {
     Flow[Chunk]
       .map {
         case chunk if chunk.isMandatory =>
-          Some(chunk)
+          Source.single(chunk)
         case chunk =>
-          chunk.bytes.runWith(Sink.ignore)
-          None
+          // This slightly odd mapping ensures that all the bytes are read
+          chunk.bytes.mapConcat(_ => Nil)
       }
-      .collect {
-        case Some(chunkWithSource) => chunkWithSource
-      }
+      .flatten(FlattenStrategy.concat)
   }
 
   /**
@@ -62,47 +74,40 @@ object PngFlows {
     }
   }
 
-  implicit class RawSourceWithResize[Mat](val raw: Source[ByteString, Mat])(implicit fm: FlowMaterializer) {
-    def resizePngData(logic: ScalingLogic) = PngFlows.resize(raw.via(chunker).via(mandatoryChunkFilter), logic).via(deChunker)
-  }
-
-  implicit class SourceWithResize[Mat](val chunks: Source[Chunk, Mat])(implicit fm: FlowMaterializer) {
-    def resize(logic: ScalingLogic) = PngFlows.resize(chunks, logic)
-  }
-
   /**
    * Resize a stream of PNG chunks
-   *
-   * N.B. This will materialize the stream to find the IHDR!
    */
-  def resize[Mat](chunkSource: Source[Chunk, Mat], logic: ScalingLogic)(implicit materializer: FlowMaterializer): Source[Chunk, Mat] = {
-    import materializer.executionContext
+  def resizeChunks(logic: ScalingLogic): Flow[Chunk, Chunk, _] = {
 
-    val (mat, firstChunkAndTail) = chunkSource
-      .prefixAndTail(1)
-      .toMat(Sink.head)((_, _))
-      .run()
-
-    val ihdrAndChunks = firstChunkAndTail
-      .flatMap {
-        case (Seq(Chunk(ChunkHeader("IHDR", _), ihdrData)), otherChunks) =>
-          ihdrData.runFold(ByteString())(_ ++ _).map(Ihdr.fromBytes).map((_, otherChunks))
-        case _ => throw new Exception("First chunk must be IHDR")
-      }
-
-    val allChunksFuture = ihdrAndChunks.map { case (ihdr, otherChunks) =>
-      val newIhdr = logic.resizeIhdr(ihdr)
-      Source.single(Chunk(ChunkHeader("IHDR", 13), Source.single(newIhdr.bytes))) ++
-        otherChunks.via(resizeChunks(logic, ihdr))
+    def parseIhdr(chunk: Chunk): Source[Ihdr, _] = chunk match {
+      case Chunk(ChunkHeader("IHDR", _), ihdrData) =>
+        ihdrData.transform(() => new ByteStringParsingStage[Ihdr](Ihdr.fromBytes))
+      case _ => throw new Exception("First chunk must be IHDR")
     }
 
-    Source(allChunksFuture).flatten(FlattenStrategy.concat).mapMaterializedValue(_ => mat)
+    Flow[Chunk]
+      .prefixAndTail(1)
+      .map {
+        case (Seq(ihdrChunk), otherChunks) =>
+          parseIhdr(ihdrChunk).prefixAndTail(1).map {
+            case (Seq(ihdr), _) => (ihdr, otherChunks)
+        }
+      }
+      .flatten(FlattenStrategy.concat)
+      .map {
+        case (ihdr, otherChunks) =>
+          (logic.resizeIhdr(ihdr), otherChunks.via(resizeChunksWithIhdr(logic, ihdr)))
+      }
+      .map {
+        case (ihdr, otherChunks) =>
+          Source.single(ihdr.createChunk) ++ otherChunks
+    }.flatten(FlattenStrategy.concat)
   }
 
   /**
    * Resize a stream of chunks with a known IHDR
    */
-  private def resizeChunks(logic: ScalingLogic, ihdr: Ihdr) = Flow() { implicit b =>
+  private def resizeChunksWithIhdr(logic: ScalingLogic, ihdr: Ihdr): Flow[Chunk, Chunk, _] = Flow() { implicit b =>
     import FlowGraph.Implicits._
 
     val ihdrPromise = Promise[Ihdr]()

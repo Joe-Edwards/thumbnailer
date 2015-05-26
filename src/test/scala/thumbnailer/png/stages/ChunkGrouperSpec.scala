@@ -3,13 +3,12 @@ package thumbnailer.png.stages
 import akka.actor.ActorSystem
 import akka.stream.ActorFlowMaterializer
 import akka.stream.scaladsl.Source
-import akka.util.{Timeout, ByteString}
-import org.specs2.matcher.Scope
+import akka.util.ByteString
 import org.specs2.mutable.Specification
-import thumbnailer.png.datatypes.{ChunkEnd, ChunkData, ChunkHeader, ChunkGrouperOutput}
-import scala.concurrent.duration._
+import thumbnailer.png.datatypes.{ChunkData, ChunkGrouperOutput, ChunkHeader}
 
 import scala.concurrent.Await
+import scala.concurrent.duration._
 
 class ChunkGrouperSpec extends Specification {
 
@@ -56,14 +55,11 @@ class ChunkGrouperSpec extends Specification {
       val chunkData = ByteString(0x01, 0x02, 0x03, 0x04, 0x05, 0x06)
       val chunkCrc = ByteString(0x00, 0x00, 0x00, 0x00)
 
-      val expectedHeader = ChunkHeader(chunkName, chunkData.length)
-
       val result = runGrouperWithStandard(chunkLength, ByteString(chunkName), chunkData, chunkCrc)
 
       result must beEqualTo(List(
         ChunkHeader(chunkName, chunkData.length),
-        ChunkData(expectedHeader, chunkData),
-        ChunkEnd(expectedHeader, chunkCrc)))
+        ChunkData(chunkData)))
     }
 
     "fail a chunk with a bad name" in {

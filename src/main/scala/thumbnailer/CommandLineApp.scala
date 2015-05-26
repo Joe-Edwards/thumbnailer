@@ -51,7 +51,7 @@ object CommandLineApp {
     val resizeLogic = new AverageScalingStage.Logic(scaleWidth, scaleHeight)
 
     val (inputLengthFuture, outputLengthFuture) = inputSource
-      .resizePngData(resizeLogic)
+      .via(resizePng(resizeLogic))
       .toMat(outputSink)((_, _))
       .run()
 

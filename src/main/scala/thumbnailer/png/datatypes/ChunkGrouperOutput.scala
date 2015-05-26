@@ -4,9 +4,7 @@ import java.nio.ByteBuffer
 
 import akka.util.ByteString
 
-sealed trait ChunkGrouperOutput {
-  def header: ChunkHeader
-}
+sealed trait ChunkGrouperOutput
 
 case class ChunkHeader(name: String, length: Int) extends ChunkGrouperOutput {
 
@@ -14,10 +12,6 @@ case class ChunkHeader(name: String, length: Int) extends ChunkGrouperOutput {
   def nameBytes =  ByteString(name.getBytes)
 
   def isEnd = name == "IEND"
-
-  override def header: ChunkHeader = this
 }
 
-case class ChunkData(header: ChunkHeader, bytes: ByteString) extends ChunkGrouperOutput
-
-case class ChunkEnd(header: ChunkHeader, crc: ByteString) extends ChunkGrouperOutput
+case class ChunkData(bytes: ByteString) extends ChunkGrouperOutput

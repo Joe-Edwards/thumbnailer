@@ -2,6 +2,7 @@ package thumbnailer.png.datatypes
 
 import java.nio.ByteBuffer
 
+import akka.stream.scaladsl.Source
 import akka.util.ByteString
 
 case class Ihdr(
@@ -30,9 +31,11 @@ case class Ihdr(
     ByteString(buffer)
   }
 
-  def bytesPerPixel = (bitDepth.toInt * colourType.channels) / 8
+  def bytesPerPixel: Int = (bitDepth.toInt * colourType.channels) / 8
 
-  def bytesPerLine = bytesPerPixel * width + 1 // add 1 for the filter byte
+  def bytesPerLine: Int = bytesPerPixel * width + 1 // add 1 for the filter byte
+
+  def createChunk: Chunk = Chunk(ChunkHeader("IHDR", 13), Source.single(bytes))
 }
 
 object Ihdr {

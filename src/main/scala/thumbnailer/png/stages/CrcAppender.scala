@@ -13,7 +13,7 @@ class CrcAppender extends PushPullStage[ByteString, ByteString] {
   override def onUpstreamFinish(ctx: Context[ByteString]): TerminationDirective = ctx.absorbTermination()
 
   override def onPush(elem: ByteString, ctx: Context[ByteString]): SyncDirective = {
-    crc.update(elem.asByteBuffer)
+    crc.update(elem.toArray)
     ctx.push(elem)
   }
 

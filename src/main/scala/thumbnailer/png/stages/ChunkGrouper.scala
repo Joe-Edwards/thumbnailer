@@ -55,7 +55,7 @@ class ChunkGrouper extends StatefulStage[ByteString, ChunkGrouperOutput] {
 
         // Put the name bytes in the CRC
         crc.reset()
-        crc.update(nameBytes.asByteBuffer)
+        crc.update(nameBytes.toArray)
 
         if (header.isEnd)
           becomeAndPull(readingChunkData(buffer, header), ctx)
@@ -77,25 +77,25 @@ class ChunkGrouper extends StatefulStage[ByteString, ChunkGrouperOutput] {
         val bytes = buffer.take(bytesToForward)
         buffer = buffer.drop(bytesToForward)
 
-        crc.update(bytes.asByteBuffer)
+        crc.update(bytes.toArray)
 
         if (header.isEnd) {
           becomeAndPull(readingChunkEnd(buffer, header), ctx)
         } else {
           become(readingChunkEnd(buffer, header))
-          ctx.push(ChunkData(header, bytes))
+          ctx.push(ChunkData(bytes))
         }
       } else {
         bytesToForward -= buffer.length
         val bytes = buffer
         buffer = ByteString()
 
-        crc.update(bytes.asByteBuffer)
+        crc.update(bytes.toArray)
 
         if (header.isEnd)
           pullIfPossible(ctx)
         else
-          ctx.push(ChunkData(header, bytes))
+          ctx.push(ChunkData(bytes))
       }
     }
   }
@@ -109,8 +109,7 @@ class ChunkGrouper extends StatefulStage[ByteString, ChunkGrouperOutput] {
         if (header.isEnd) {
           becomeAndPull(endingStream(), ctx)
         } else {
-          become(readingChunkHeader(buffer))
-          ctx.push(ChunkEnd(header, crcBytes))
+          becomeAndPull(readingChunkHeader(buffer), ctx)
         }
       }
     }

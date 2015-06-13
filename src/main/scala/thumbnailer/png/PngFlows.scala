@@ -1,24 +1,19 @@
 package thumbnailer.png
 
 import akka.http.scaladsl.coding.{Deflate, DeflateDecompressor}
+import akka.stream.BidiShape
 import akka.stream.scaladsl._
 import akka.util.ByteString
 import thumbnailer.png.datatypes._
 import thumbnailer.png.stages._
 
-import scala.concurrent.Promise
-
 object PngFlows {
 
   /**
-   * Flow combining the others to resize a PNG
+   * Flow to resize a stream of PNG data
    */
   def resizePng(logic: ScalingLogic): Flow[ByteString, ByteString, _] = {
-    Flow[ByteString]
-      .via(chunker)
-      .via(mandatoryChunkFilter)
-      .via(resizeChunks(logic))
-      .via(deChunker)
+    chunkingLayer.join(resizeChunks(logic))
   }
 
   /**
@@ -36,21 +31,6 @@ object PngFlows {
         case _ => throw new Exception("Bad chunk grouper output")
       }
     }.flatten(FlattenStrategy.concat)
-  }
-
-  /**
-   * Filters any non-mandatory chunks, ensuring that their bytes are still read.
-   */
-  val mandatoryChunkFilter: Flow[Chunk, Chunk, _] = {
-    Flow[Chunk]
-      .map {
-        case chunk if chunk.isMandatory =>
-          Source.single(chunk)
-        case chunk =>
-          // This slightly odd mapping ensures that all the bytes are read
-          chunk.bytes.mapConcat(_ => Nil)
-      }
-      .flatten(FlattenStrategy.concat)
   }
 
   /**
@@ -73,6 +53,29 @@ object PngFlows {
       (flow.inlet, merge.out)
     }
   }
+
+  /**
+   * Filters any non-mandatory chunks, ensuring that their bytes are still read.
+   */
+  val mandatoryChunkFilter: Flow[Chunk, Chunk, _] = {
+    Flow[Chunk]
+      .map {
+      case chunk if chunk.isMandatory =>
+        Source.single(chunk)
+      case chunk =>
+        // This slightly odd mapping ensures that all the bytes are read
+        chunk.bytes.mapConcat(_ => Nil)
+    }
+      .flatten(FlattenStrategy.concat)
+  }
+
+  /**
+   * Transforms between raw PNG data and chunks
+   *
+   * - Handles the PNG header and end chunk internally
+   * - Excludes any non-mandatory chunks
+   */
+  val chunkingLayer = simpleBidiFlow(chunker via mandatoryChunkFilter, deChunker)
 
   /**
    * Resize a stream of PNG chunks
@@ -104,57 +107,63 @@ object PngFlows {
     }.flatten(FlattenStrategy.concat)
   }
 
-  /**
-   * Resize a stream of chunks with a known IHDR
-   */
-  private def resizeChunksWithIhdr(logic: ScalingLogic, ihdr: Ihdr): Flow[Chunk, Chunk, _] = Flow() { implicit b =>
-    import FlowGraph.Implicits._
-
-    val ihdrPromise = Promise[Ihdr]()
-
-    val split = b.add(new DataSplit)
-    val merge = b.add(Merge[Chunk](2))
-    val resize = b.add(dataToChunkTransform(lineToDataTransform(ihdr, logic.resizeLines(ihdr))))
-
-    split.out0      ~>      merge.in(0)
-    split.out1 ~> resize ~> merge.in(1)
-
-    (split.in, merge.out)
+  private def resizeChunksWithIhdr(logic: ScalingLogic, ihdr: Ihdr) = {
+    idatChunksOnly
+      .atop(dataChunkLayer)
+      .atop(compressionLayer)
+      .atop(linifierLayer(ihdr.bytesPerLine))
+      .atop(filteringLayer(ihdr.bytesPerPixel))
+      .join(logic.resizeLines(ihdr))
   }
 
   /**
-   * Turns a raw pixel data transform into a transform on the stream of IDAT chunks
+   * Forwards only the IDAT chunks
    */
-  private def dataToChunkTransform(
-    dataTransform: Flow[ByteString, ByteString, _]
-  ): Flow[Chunk, Chunk, _] = {
+  private val idatChunksOnly = ConditionalRoute.bidiFlow[Chunk](_.header.name == "IDAT")
+
+  /**
+   * Transforms between a stream of IDAT chunks and a stream of raw [[ByteString]]
+   */
+  private val dataChunkLayer = simpleBidiFlow(
     Flow[Chunk]
       .map(_.data)
-      .flatten(FlattenStrategy.concat)
-      .via(dataTransform)
+      .flatten(FlattenStrategy.concat),
+    Flow[ByteString]
       .transform(() => new ClumpingStage(minimumSize = 1024)) // Ensure all chunks > 1KB to avoid wasteful chunking
-      .map(b => Chunk(ChunkHeader("IDAT", b.length), Source.single(b)))
-  }
+      .map(b => Chunk(ChunkHeader("IDAT", b.length), Source.single(b))))
 
   /**
-   * Turns a line-by-line transform into a transform on the raw pixel data
+   * Applies deflate decompression/compression to a stream of [[ByteString]]
    */
-  private def lineToDataTransform(
-    ihdr: Ihdr,
-    dataTransform: Flow[Line, Line, _]
-  ): Flow[ByteString, ByteString, _] = {
-    var totalSize = 0L
-    var totalSize2 = 0L
+  private val compressionLayer = simpleBidiFlow(
     Flow[ByteString]
-      //.log("compressed", b => {totalSize += b.length; totalSize})(new SimpleLogger())
-      .mapConcat(_.grouped(1024).toList) // TODO: Deflate gets overexcited with large pieces
-      .transform(() => new DeflateDecompressor())
-      //.log("decompressed", b => {totalSize2 += b.length; totalSize2})(new SimpleLogger())
-      .transform(() => new Linifier(ihdr.bytesPerLine))
-      .transform(() => new UnfilteringStage(ihdr.bytesPerPixel))
-      .via(dataTransform)
-      .transform(() => new FilteringStage(ihdr.bytesPerPixel))//, singleFilter = Some(Filter.PaethFilter))) // TODO: Maybe more efficient to just stick with Paeth
-      .map(_.raw)
-      .transform(() => new Deflate(_ => true).newEncodeTransformer())
+      .mapConcat(_.grouped(1024).toList)
+      .transform(() => new DeflateDecompressor()),
+    Flow[ByteString]
+      .transform(() => new Deflate(_ => true).newEncodeTransformer()))
+
+  /**
+   * Transforms between a stream of [[ByteString]] and a stream of [[Line]]
+   */
+  private def linifierLayer(bytesPerLine: Int) = simpleBidiFlow(
+    Flow[ByteString].transform(() => new Linifier(bytesPerLine)),
+    Flow[Line].map(_.raw))
+
+  /**
+   * Unfilters and filters a stream of [[Line]]
+   */
+  private def filteringLayer(bytesPerPixel: Int) = simpleBidiFlow(
+    Flow[Line].transform(() => new UnfilteringStage(bytesPerPixel)),
+    Flow[Line].transform(() => new FilteringStage(bytesPerPixel))) // TODO: Maybe more efficient to just stick with Paeth
+
+  /**
+   * Create a simple BidiFlow from two distinct flows
+   */
+  private def simpleBidiFlow[I1, O1, I2, O2](lhs: Flow[I1, O1, _], rhs: Flow[I2, O2, _]) = {
+    BidiFlow() { implicit b =>
+      val lhsShape = b.add(lhs)
+      val rhsShape = b.add(rhs)
+      BidiShape(lhsShape.inlet, lhsShape.outlet, rhsShape.inlet, rhsShape.outlet)
+    }
   }
 }
